@@ -7,7 +7,11 @@
     <groupId>com.jaumo</groupId>
     <artifactId>pushinator</artifactId>
     <version>0.1-SNAPSHOT</version>
-
+    <packaging>jar</packaging>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.corundumstudio.socketio</groupId>
@@ -46,7 +50,16 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>appassembler-maven-plugin</artifactId>
                 <version>1.8.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>assemble</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
+                    <assembleDirectory>target/deb</assembleDirectory>
                     <configurationDirectory>etc</configurationDirectory>
                     <configurationSourceDirectory>src/main/config</configurationSourceDirectory>
                     <copyConfigurationDirectory>true</copyConfigurationDirectory>
@@ -57,6 +70,52 @@
                         </program>
                     </programs>
                 </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>jdeb</artifactId>
+                <groupId>org.vafer</groupId>
+                <version>1.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jdeb</goal>
+                        </goals>
+                        <configuration>
+                            <verbose>true</verbose>
+                            <snapshotExpand>true</snapshotExpand>
+                            <verbose>true</verbose>
+                            <controlDir>${basedir}/src/deb/control</controlDir>
+                            <dataSet>
+                                <data>
+                                    <src>${basedir}/target/deb/repo</src>
+                                    <type>directory</type>
+                                    <mapper>
+                                        <type>perm</type>
+                                        <prefix>/usr/local/pushinator/repo</prefix>
+                                    </mapper>
+                                </data>
+                                <data>
+                                    <src>${basedir}/target/deb/etc</src>
+                                    <type>directory</type>
+                                    <mapper>
+                                        <type>perm</type>
+                                        <prefix>/usr/local/pushinator/etc</prefix>
+                                    </mapper>
+                                </data>
+                                <data>
+                                    <src>${basedir}/target/deb/bin/pushinator</src>
+                                    <type>file</type>
+                                    <mapper>
+                                        <type>perm</type>
+                                        <prefix>/usr/local/pushinator/bin</prefix>
+                                        <filemode>770</filemode>
+                                    </mapper>
+                                </data>
+                            </dataSet>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

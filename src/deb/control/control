@@ -1,0 +1,8 @@
+Package: jaumo-pushinator
+Version: [[version]]
+Revision: 1
+Priority: optional
+Architecture: all
+Depends: java6-runtime
+Maintainer: benjamin.roth@jaumo.com
+Description: JAUMO Pushinator JAVA Implementation

@@ -7,10 +7,12 @@ import com.google.gson.JsonSyntaxException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 
 public class Admin {
@@ -18,6 +20,7 @@ public class Admin {
     Storage storage;
     Config config;
     HttpServer server;
+    Logger logger;
 
     Admin(Storage storage, Config config) {
         this.storage = storage;
@@ -25,15 +28,29 @@ public class Admin {
     }
 
     public void run() throws IOException {
+        logger = LoggerFactory.getLogger(Admin.class);
         server = HttpServer.create(new InetSocketAddress(config.adminAddress, config.adminPort), 0);
         server.createContext("/user/register", new UserRegister());
         server.createContext("/user/send", new UserSend());
+        server.createContext("/dude", new Ping());
         server.setExecutor(null); // creates a default executor
         server.start();
     }
 
     public void stop() {
         server.stop(0);
+    }
+
+    class Ping implements HttpHandler {
+
+        public void handle(HttpExchange t) throws IOException {
+            logger.debug("Ping");
+            String response = "Sweet.";
+            t.sendResponseHeaders(200, response.length());
+            OutputStream os = t.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
+        }
     }
 
     class RegisterRequest {
@@ -56,6 +73,7 @@ public class Admin {
                 t.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
                 RegisterRequest data = new Gson().fromJson(new InputStreamReader(t.getRequestBody()), RegisterRequest.class);
                 if (data.hash != null && data.userId != null && data.userId > 0) {
+                    logger.debug("Register user {} with hash {}", data.userId, data.hash);
                     String response = "OK. Registered User.";
                     t.sendResponseHeaders(200, response.length());
                     OutputStream os = t.getResponseBody();
@@ -65,60 +83,91 @@ public class Admin {
                     User user = storage.getUser(data.userId);
                     if (user != null) {
                         user.setHash(data.hash);
-                    }
-                    else {
+                    } else {
                         storage.addUser(data.userId, new User(data.hash));
                     }
-                }
-                else {
+                } else {
                     error(t);
                 }
-            }
-            catch (JsonSyntaxException e) {
+            } catch (JsonSyntaxException e) {
                 error(t);
             }
         }
     }
 
-    class SendRequest {
-        Integer userId;
-        String message;
-    }
-
     class UserSend implements HttpHandler {
 
-        private void error(HttpExchange t) throws IOException {
-            String response = "Missing userId or message in data";
+        private void error(HttpExchange t, String response) throws IOException {
             t.sendResponseHeaders(400, response.length());
             OutputStream os = t.getResponseBody();
             os.write(response.getBytes());
             os.close();
         }
 
-        public void handle(HttpExchange t) throws IOException {
+        private JSONObject getRequestObject(InputStream body) {
             try {
-                t.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                SendRequest data = new Gson().fromJson(new InputStreamReader(t.getRequestBody()), SendRequest.class);
-                if (data.userId != null && data.userId > 0 && data.message != null && data.message.length() > 0) {
-                    String response = "OK. Sent message.";
-                    t.sendResponseHeaders(200, response.length());
-                    OutputStream os = t.getResponseBody();
-                    os.write(response.getBytes());
-                    os.close();
+                BufferedReader streamReader = new BufferedReader(new InputStreamReader(body, "UTF-8"));
+                StringBuilder responseStrBuilder = new StringBuilder();
 
-                    User user = storage.getUser(data.userId);
-                    if (user != null) {
-                        Packet packet = new Packet(PacketType.MESSAGE);
-                        packet.setData(data.message);
-                        user.send(packet);
-                    }
-                }
-                else {
-                    error(t);
+                String inputStr;
+                while ((inputStr = streamReader.readLine()) != null)
+                    responseStrBuilder.append(inputStr);
+
+                return new JSONObject(responseStrBuilder.toString());
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            return null;
+        }
+
+        public void handle(HttpExchange t) throws IOException {
+            t.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            JSONObject json = getRequestObject(t.getRequestBody());
+            if (json == null) {
+                error(t, "Error parsing request");
+                return;
+            }
+
+            Integer userId;
+            try {
+                userId = json.getInt("userId");
+            } catch (JSONException e) {
+                error(t, "Invalid userId");
+                return;
+            }
+            String message = "";
+
+            try {
+                JSONObject messageObject = json.getJSONObject("message");
+                message = messageObject.toString();
+            } catch (JSONException e) {
+                try {
+                    message = json.getString("message");
+                } catch (JSONException e2) {
+                    error(t, "Message must be either a string or a JSON object");
                 }
             }
-            catch (JsonSyntaxException e) {
-                error(t);
+
+            if (userId != null && userId > 0 && message != null) {
+                String response = "OK. Sent message.";
+                t.sendResponseHeaders(200, response.length());
+                OutputStream os = t.getResponseBody();
+                os.write(response.getBytes());
+                os.close();
+
+                User user = storage.getUser(userId);
+                if (user != null) {
+                    logger.debug("Sent message to user {}: {}", userId, message);
+                    Packet packet = new Packet(PacketType.MESSAGE);
+                    packet.setData(message);
+                    user.send(packet);
+                }
+            } else {
+                error(t, "UserId or message missing");
             }
         }
     }

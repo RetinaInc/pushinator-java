@@ -6,13 +6,14 @@
 
     $.post('http://127.0.0.1:9600/user/register', JSON.stringify({userId: userId, hash: hash}),function (msg) {
         $('#log').append("<p>" + msg + "</p>");
-        var socket = io.connect('https://127.0.0.1:9601');
+        var socket = io.connect('http://127.0.0.1:9601');
         socket.on('connect', function () {
             $('#log').append("<p>Connect. Send auth</p>");
             // authenticate
             socket.emit('auth', userId, hash);
             window.setTimeout(function () {
-                $.post('http://127.0.0.1:9600/user/send', JSON.stringify({userId: userId, message: "Yuhuuu, message received"}),function (msg) {
+                var data = {userId: userId, message: {name: "message", data: {message: "Yuhuuuu, message received"}}};
+                $.post('http://127.0.0.1:9600/user/send', JSON.stringify(data),function (msg) {
                 }).fail(function () {
                     $('#log').append("<p>Sending message failed</p>");
                 });
@@ -24,8 +25,15 @@
         });
 
         socket.on('message', function (message) {
+            try {
+                var event = JSON.parse(message);
+            }
+            catch (e) {
+                return;
+            }
+
             // handle received message
-            $('#log').append("<p>" + message + "</p>");
+            $('#log').append("<p>" + event.data.message + "</p>");
         });
     }).fail(function () {
         $('#log').append("<p>Register user failed</p>");

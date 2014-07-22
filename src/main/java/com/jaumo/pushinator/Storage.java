@@ -1,6 +1,8 @@
 package com.jaumo.pushinator;
 
 import com.corundumstudio.socketio.SocketIOClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Timer;
@@ -10,20 +12,14 @@ public class Storage {
 
     HashMap<Integer, User> users;
     HashMap<SocketIOClient, Integer> clients;
+    Logger logger;
 
     private static Storage instance;
-
-    public static Storage getInstance() {
-        if (instance == null) {
-            instance = new Storage();
-        }
-
-        return instance;
-    }
 
     public Storage() {
         users = new HashMap<Integer, User>();
         clients = new HashMap<SocketIOClient, Integer>();
+        logger = LoggerFactory.getLogger(Storage.class);
     }
 
     public User getUser(Integer userId) {
@@ -55,6 +51,7 @@ public class Storage {
         User user = getUser(userId);
         if (user != null) {
             user.removeClient(client);
+            logger.debug("Disconnected user {}", userId);
             // Allow 10s grace time for reconnect before user is removed
             new Timer().schedule(new TimerTask() {
                 @Override
@@ -63,6 +60,9 @@ public class Storage {
                 }
             }, 10000);
         }
+        else {
+            logger.warn("User could not be resolved for disconnected client");
+        }
     }
 
     public void removeUserIfEmpty(Integer userId) {
@@ -70,6 +70,7 @@ public class Storage {
         if (user != null) {
             if (!user.hasClients()) {
                 users.remove(userId);
+                logger.debug("Remove user {}, no sessions", userId);
             }
         }
     }

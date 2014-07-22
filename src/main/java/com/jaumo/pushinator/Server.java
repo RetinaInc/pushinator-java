@@ -6,9 +6,6 @@ import com.corundumstudio.socketio.listener.MultiTypeEventListener;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.impl.SimpleLogger;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 import java.io.*;
 
@@ -75,10 +72,13 @@ public class Server {
                 String hash = data.get(1);
                 User user = storage.getUser(userId);
                 if (user == null) {
+                    logger.debug("Auth user {} with hash {} failed. User not registered.", userId, hash);
                     client.disconnect();
                 } else if (!user.isValid(hash)) {
+                    logger.debug("Auth user {} with hash {} failed. Hash mismatch.", userId, hash);
                     client.disconnect();
                 } else {
+                    logger.debug("Auth user {} with hash {} success", userId, hash);
                     user.addClient(client);
                     storage.addClient(userId, client);
                     storage.addUser(userId, user);
@@ -129,7 +129,7 @@ public class Server {
     public void stop() {
         server.stop();
         adminServer.stop();
-        logger.error("Shutting down");
+        logger.info("Shutting down");
     }
 
     public static void main(String[] args) throws InterruptedException {

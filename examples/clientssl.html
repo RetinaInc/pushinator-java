@@ -12,7 +12,8 @@
             // authenticate
             socket.emit('auth', userId, hash);
             window.setTimeout(function () {
-                $.post('http://127.0.0.1:9600/user/send', JSON.stringify({userId: userId, message: "Yuhuuu, message received"}),function (msg) {
+                var data = {userId: userId, message: {name: "message", data: {message: "Yuhuuuu, message received"}}};
+                $.post('http://127.0.0.1:9600/user/send', JSON.stringify(data),function (msg) {
                 }).fail(function () {
                     $('#log').append("<p>Sending message failed</p>");
                 });
@@ -24,8 +25,15 @@
         });
 
         socket.on('message', function (message) {
+            try {
+                var event = JSON.parse(message);
+            }
+            catch (e) {
+                return;
+            }
+
             // handle received message
-            $('#log').append("<p>" + message + "</p>");
+            $('#log').append("<p>" + event.data.message + "</p>");
         });
     }).fail(function () {
         $('#log').append("<p>Register user failed</p>");

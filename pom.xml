@@ -25,9 +25,19 @@
             <version>2.2.4</version>
         </dependency>
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>1.7.2</version>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20140107</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>1.0.0</version>
         </dependency>
     </dependencies>
     <build>
@@ -37,6 +47,9 @@
                 <artifactId>appassembler-maven-plugin</artifactId>
                 <version>1.8.1</version>
                 <configuration>
+                    <configurationDirectory>etc</configurationDirectory>
+                    <configurationSourceDirectory>src/main/config</configurationSourceDirectory>
+                    <copyConfigurationDirectory>true</copyConfigurationDirectory>
                     <programs>
                         <program>
                             <mainClass>com.jaumo.pushinator.Server</mainClass>

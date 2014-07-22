@@ -1,0 +1,35 @@
+<script type="text/javascript" src="socket.io.client.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script type="text/javascript">
+    var userId = 55866;
+    var hash = '7f81776793e31d71d1ed71038e78dbf5';
+
+    $.post('http://127.0.0.1:9600/user/register', JSON.stringify({userId: userId, hash: hash}),function (msg) {
+        $('#log').append("<p>" + msg + "</p>");
+        var socket = io.connect('https://127.0.0.1:9601');
+        socket.on('connect', function () {
+            $('#log').append("<p>Connect. Send auth</p>");
+            // authenticate
+            socket.emit('auth', userId, hash);
+            window.setTimeout(function () {
+                $.post('http://127.0.0.1:9600/user/send', JSON.stringify({userId: userId, message: "Yuhuuu, message received"}),function (msg) {
+                }).fail(function () {
+                    $('#log').append("<p>Sending message failed</p>");
+                });
+            }, 100);
+        });
+
+        socket.on('disconnect', function () {
+            $('#log').append("<p>Disconnect</p>");
+        });
+
+        socket.on('message', function (message) {
+            // handle received message
+            $('#log').append("<p>" + message + "</p>");
+        });
+    }).fail(function () {
+        $('#log').append("<p>Register user failed</p>");
+    });
+
+</script>
+<div id="log"></div>

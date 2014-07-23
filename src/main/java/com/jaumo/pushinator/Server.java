@@ -17,7 +17,7 @@ public class Server {
 
     Logger logger;
     SocketIOServer server;
-    Admin adminServer;
+    NettyAdmin adminServer;
     Config config;
 
     Server() {
@@ -106,7 +106,7 @@ public class Server {
     public void setupAdminServer(final Storage storage) throws StartUpException {
         try {
             logger.info("Start admin server on " + this.config.adminAddress + ":" + this.config.adminPort);
-            adminServer = new Admin(storage, config);
+            adminServer = new NettyAdmin(storage, config);
             adminServer.run();
         } catch (IOException e) {
             logger.error(e.getMessage());
@@ -118,7 +118,7 @@ public class Server {
         try {
             logger = LoggerFactory.getLogger(Server.class);
             final Storage storage = new Storage();
-            server = setUpSocketServer(storage);
+//            server = setUpSocketServer(storage);
             setupAdminServer(storage);
         } catch (StartUpException e) {
             logger.error("Server did not start");

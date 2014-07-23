@@ -29,7 +29,7 @@ public class Admin {
 
     public void run() throws IOException {
         logger = LoggerFactory.getLogger(Admin.class);
-        server = HttpServer.create(new InetSocketAddress(config.adminAddress, config.adminPort), 0);
+        server = HttpServer.create(new InetSocketAddress(config.adminAddress, config.adminPort), config.backlogQueueSize);
         server.createContext("/user/register", new UserRegister());
         server.createContext("/user/send", new UserSend());
         server.createContext("/dude", new Ping());

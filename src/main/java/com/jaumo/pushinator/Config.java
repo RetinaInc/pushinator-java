@@ -11,6 +11,7 @@ public class Config {
     boolean useSSL = false;
     String sslKeyStore = "";
     String sslKeyStorePassword = "";
+    int backlogQueueSize = 1024;
 
     Config() {
     }
@@ -27,6 +28,9 @@ public class Config {
         }
         if (commandLine.hasOption("clientPort")) {
             clientPort = Integer.valueOf(commandLine.getOptionValue("clientPort"));
+        }
+        if (commandLine.hasOption("backlogQueueSize")) {
+            backlogQueueSize = Integer.valueOf(commandLine.getOptionValue("backlogQueueSize"));
         }
         if (commandLine.hasOption("ssl")) {
             useSSL = true;
@@ -51,6 +55,7 @@ public class Config {
                 .addOption("ssl", false, "Enable SSL")
                 .addOption("sslKeyStore", true, "Path to keystore file")
                 .addOption("sslKeyStorePassword", true, "Keystore password")
+                .addOption("backlogQueueSize", true, "TCP Backlog queue size")
                 .addOption("help", false, "Display help");
         return gnuOptions;
     }

@@ -65,7 +65,8 @@ public class NettyAdmin {
                     .channel(NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.INFO))
                     .childHandler(new Initializer())
-                    .option(ChannelOption.SO_BACKLOG, config.backlogQueueSize);
+                    .option(ChannelOption.SO_BACKLOG, config.backlogQueueSize)
+                    .option(ChannelOption.SO_REUSEADDR, true);
 
             Channel ch = b.bind(config.adminAddress, config.adminPort).sync().channel();
 
@@ -134,6 +135,8 @@ public class NettyAdmin {
                     sendResponse(ctx, req, OK, "Sweet.");
                     return;
                 }
+                sendResponse(ctx, req, NOT_FOUND);
+                return;
             }
             else if (req.getMethod() == POST) {
                 if ("/user/register".equals(req.getUri())) {
@@ -148,13 +151,14 @@ public class NettyAdmin {
                     sendResponse(ctx, req, OK, "Sweet.");
                     return;
                 }
-
+                sendResponse(ctx, req, NOT_FOUND);
+                return;
             }
             sendResponse(ctx, req, FORBIDDEN);
         }
 
         private void sendResponse(ChannelHandlerContext ctx, FullHttpRequest req, HttpResponseStatus status) {
-            sendResponse(ctx, req, status);
+            sendResponse(ctx, req, status, null);
         }
 
         private void sendResponse(ChannelHandlerContext ctx, FullHttpRequest req, HttpResponseStatus status, String body) {
@@ -186,7 +190,7 @@ public class NettyAdmin {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            cause.printStackTrace();
+            logger.debug(cause.getMessage());
             ctx.close();
         }
 

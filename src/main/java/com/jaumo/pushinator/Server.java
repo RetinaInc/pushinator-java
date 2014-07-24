@@ -118,7 +118,7 @@ public class Server {
         try {
             logger = LoggerFactory.getLogger(Server.class);
             final Storage storage = new Storage();
-//            server = setUpSocketServer(storage);
+            server = setUpSocketServer(storage);
             setupAdminServer(storage);
         } catch (StartUpException e) {
             logger.error("Server did not start");

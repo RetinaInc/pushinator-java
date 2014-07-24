@@ -65,8 +65,7 @@ public class NettyAdmin {
                     .channel(NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.INFO))
                     .childHandler(new Initializer())
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+                    .option(ChannelOption.SO_BACKLOG, config.backlogQueueSize);
 
             Channel ch = b.bind(config.adminAddress, config.adminPort).sync().channel();
 
@@ -141,18 +140,17 @@ public class NettyAdmin {
                     handleUserRegister(ctx, req);
                     return;
                 }
-
-
                 else if ("/user/send".equals(req.getUri())) {
                     handleUserSend(ctx, req);
                     return;
                 }
+                else if ("/dude".equals(req.getUri())) {
+                    sendResponse(ctx, req, OK, "Sweet.");
+                    return;
+                }
 
             }
-            else {
-                sendResponse(ctx, req, FORBIDDEN);
-                return;
-            }
+            sendResponse(ctx, req, FORBIDDEN);
         }
 
         private void sendResponse(ChannelHandlerContext ctx, FullHttpRequest req, HttpResponseStatus status) {

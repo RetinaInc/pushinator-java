@@ -23,19 +23,19 @@ public class User {
         return hash != null && this.hash != null && hash.equals(this.hash);
     }
 
-    public void addClient(SocketIOClient client) {
+    public synchronized void addClient(SocketIOClient client) {
         if (!clients.contains(client)) {
             clients.add(client);
         }
     }
 
-    public void removeClient(SocketIOClient client) {
+    public synchronized void removeClient(SocketIOClient client) {
         if (clients.contains(client)) {
             clients.remove(client);
         }
     }
 
-    public void send(Packet packet) {
+    public synchronized void send(Packet packet) {
         for (SocketIOClient client: clients) {
             client.send(packet);
         }

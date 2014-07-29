@@ -22,7 +22,7 @@ public class Storage {
         logger = LoggerFactory.getLogger(Storage.class);
     }
 
-    public User getUser(Integer userId) {
+    public synchronized User getUser(Integer userId) {
         if (isUserRegistered(userId)) {
             return users.get(userId);
         }
@@ -30,19 +30,19 @@ public class Storage {
         return null;
     }
 
-    public void addUser(Integer userId, User user) {
+    public synchronized void addUser(Integer userId, User user) {
         if (!isUserRegistered(userId)) {
             users.put(userId, user);
         }
     }
 
-    public void addClient(Integer userId, SocketIOClient client) {
+    public synchronized void addClient(Integer userId, SocketIOClient client) {
         if (!clients.containsKey(client)) {
             clients.put(client, userId);
         }
     }
 
-    public void removeClient(SocketIOClient client) {
+    public synchronized void removeClient(SocketIOClient client) {
         if (!clients.containsKey(client)) {
             return;
         }
@@ -53,19 +53,21 @@ public class Storage {
             user.removeClient(client);
             logger.debug("Disconnected user {}", userId);
             // Allow 10s grace time for reconnect before user is removed
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    removeUserIfEmpty(userId);
-                }
-            }, 10000);
+            if (!user.hasClients()) {
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        removeUserIfEmpty(userId);
+                    }
+                }, 10000);
+            }
         }
         else {
             logger.warn("User could not be resolved for disconnected client");
         }
     }
 
-    public void removeUserIfEmpty(Integer userId) {
+    public synchronized void removeUserIfEmpty(Integer userId) {
         User user = getUser(userId);
         if (user != null) {
             if (!user.hasClients()) {

@@ -26,6 +26,7 @@ import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.HttpVersion.*;
 
 import java.io.*;
+import java.util.HashMap;
 
 public class NettyAdmin {
 
@@ -57,27 +58,28 @@ public class NettyAdmin {
 
     public void run() throws IOException {
         logger = LoggerFactory.getLogger(Admin.class);
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup();
-        try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new Initializer())
-                    .option(ChannelOption.SO_BACKLOG, config.backlogQueueSize)
-                    .option(ChannelOption.SO_REUSEADDR, true);
+        bossGroup = new NioEventLoopGroup(0);
+        workerGroup = new NioEventLoopGroup(0);
+        ServerBootstrap b = new ServerBootstrap();
 
-            Channel ch = b.bind(config.adminAddress, config.adminPort).sync().channel();
+        boolean reuseAddress = true;
+        boolean tcpNoDelay = true;
+        int soLinger = 0;
+        logger.info("Socket Option backlog: " + config.backlogQueueSize);
+        logger.info("Socket Option SO_REUSEADDRESS: " + reuseAddress);
+        logger.info("Socket Option TCP_NODELAY: " + tcpNoDelay);
+        logger.info("Socket Option SO_LINGER: " + soLinger);
 
-            ch.closeFuture().sync();
-        }
-        catch (InterruptedException e) {
-            // Ignore
-        } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-        }
+        b.group(bossGroup, workerGroup)
+                .channel(NioServerSocketChannel.class)
+                .handler(new LoggingHandler(LogLevel.INFO))
+                .childHandler(new Initializer())
+                .option(ChannelOption.SO_BACKLOG, config.backlogQueueSize)
+                .option(ChannelOption.SO_REUSEADDR, reuseAddress)
+                .option(ChannelOption.TCP_NODELAY, tcpNoDelay)
+                .localAddress(config.adminAddress, config.adminPort);
+
+        b.bind().syncUninterruptibly();
     }
 
     public void stop() {
@@ -113,6 +115,19 @@ public class NettyAdmin {
             ctx.flush();
         }
 
+        class Stats {
+            public int clients;
+            public int users;
+
+            public int getClients() {
+                return clients;
+            }
+
+            public int getUsers() {
+                return users;
+            }
+        }
+
         private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
             // Handle a bad request.
             if (!req.getDecoderResult().isSuccess()) {
@@ -133,6 +148,14 @@ public class NettyAdmin {
                 }
                 else if ("/dude".equals(req.getUri())) {
                     sendResponse(ctx, req, OK, "Sweet.");
+                    return;
+                }
+                else if ("/stats".equals(req.getUri())) {
+                    Stats stats = new Stats();
+                    stats.users = storage.users.size();
+                    stats.clients = storage.clients.size();
+                    Gson gson = new Gson();
+                    sendResponse(ctx, req, OK, gson.toJson(stats));
                     return;
                 }
                 sendResponse(ctx, req, NOT_FOUND);
@@ -180,7 +203,6 @@ public class NettyAdmin {
                 res.headers().set(CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
             }
 
-//            HttpHeaders.setContentLength(res, content.readableBytes());
             // Send the response and close the connection if necessary.
             ctx.write(res);
             if (!isKeepAlive) {
@@ -238,7 +260,7 @@ public class NettyAdmin {
                 return;
             }
 
-            Integer userId;
+            int userId;
             try {
                 userId = json.getInt("userId");
             } catch (JSONException e) {
@@ -255,10 +277,11 @@ public class NettyAdmin {
                     message = json.getString("message");
                 } catch (JSONException e2) {
                     sendResponse(ctx, req, BAD_REQUEST, "Message must be either a string or a JSON object");
+                    return;
                 }
             }
 
-            if (userId != null && userId > 0 && message != null) {
+            if (userId > 0 && message != null) {
                 String response = "OK. Sent message.";
                 sendResponse(ctx, req, OK, response);
 

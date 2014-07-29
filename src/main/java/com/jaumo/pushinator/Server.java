@@ -51,6 +51,12 @@ public class Server {
 
     private SocketIOServer setUpSocketServer(final Storage storage) throws StartUpException {
         Configuration config = new Configuration();
+        config.getSocketConfig().setReuseAddress(true);
+
+        logger.info("Socket Option backlog: " + config.getSocketConfig().getAcceptBackLog());
+        logger.info("Socket Option SO_REUSEADDRESS: " + config.getSocketConfig().isReuseAddress());
+        logger.info("Socket Option TCP_NODELAY: " + config.getSocketConfig().isTcpNoDelay());
+        logger.info("Socket Option SO_LINGER: " + config.getSocketConfig().getSoLinger());
         config.setHostname(this.config.clientAddress);
         config.setPort(this.config.clientPort);
         if (this.config.useSSL) {
@@ -108,6 +114,7 @@ public class Server {
             logger.info("Start admin server on " + this.config.adminAddress + ":" + this.config.adminPort);
             adminServer = new NettyAdmin(storage, config);
             adminServer.run();
+            logger.info("Admin server started");
         } catch (IOException e) {
             logger.error(e.getMessage());
             throw new StartUpException();
@@ -120,6 +127,7 @@ public class Server {
             final Storage storage = new Storage();
             server = setUpSocketServer(storage);
             setupAdminServer(storage);
+            logger.info("Startup finished");
         } catch (StartUpException e) {
             logger.error("Server did not start");
             throw e;
@@ -143,7 +151,6 @@ public class Server {
                     server.stop();
                 }
             });
-            Thread.sleep(Integer.MAX_VALUE);
         } catch (StartUpException e) {
             //
             System.exit(1);

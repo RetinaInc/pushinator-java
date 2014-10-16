@@ -3,10 +3,7 @@ package com.jaumo.pushinator;
 import com.corundumstudio.socketio.*;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import com.corundumstudio.socketio.listener.MultiTypeEventListener;
-import com.mastfrog.netty.http.client.HttpClient;
-import com.mastfrog.netty.http.client.ResponseHandler;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpResponseStatus;
+import com.jaumo.pushinator.httpclient.HttpClient;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +21,7 @@ public class Server {
     Logger logger;
     SocketIOServer server;
     NettyAdmin adminServer;
+    HttpClient httpClient;
     Config config;
 
     Server() {
@@ -55,6 +53,8 @@ public class Server {
         writer.close();
     }
 
+
+
     private void sendCallback(Integer userId, final User user, String hash) {
         if (config.callbackUrl != null) {
             long timestamp = new Date().getTime() - config.callbackUrlCapping * 1000;
@@ -63,24 +63,10 @@ public class Server {
                     final String url = config.callbackUrl
                             .replace(":userId:", URLEncoder.encode(userId.toString(), "UTF-8"))
                             .replace(":hash:", URLEncoder.encode(hash, "UTF-8"));
-                    HttpClient httpClient = HttpClient.builder().followRedirects().build();
-                    httpClient
-                            .get().setURL(url)
-                            .execute(new ResponseHandler<String>(String.class) {
-
-                                protected void receive(HttpResponseStatus status, HttpHeaders headers, String response) {
-                                    if (status.code() >= 200 && status.code() < 300) {
-                                        logger.debug("Connect callback success {}", url);
-                                        user.setCallbackSent();
-                                    }
-                                    else {
-                                        logger.error("Connect callback error {} {}: {}...", url, status.code(), response.substring(0, 100));
-                                    }
-                                }
-                            });
+                    httpClient.sendCallback(url, user);
                 }
                 catch (UnsupportedEncodingException e) {
-                    return;
+                    //
                 }
             }
         }
@@ -157,6 +143,7 @@ public class Server {
             storage.setStaleUserExpireTime(config.staleUserExpireTime);
             server = setUpSocketServer(storage);
             setupAdminServer(storage);
+            httpClient = new HttpClient(config);
             logger.info("Startup finished");
         } catch (StartUpException e) {
             logger.error("Server did not start");
@@ -167,6 +154,7 @@ public class Server {
     public void stop() {
         server.stop();
         adminServer.stop();
+        httpClient.stop();
         logger.info("Shutting down");
     }
 

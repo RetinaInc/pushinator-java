@@ -14,29 +14,44 @@
     </properties>
     <repositories>
         <repository>
-            <id>timboudreau-builds</id>
-            <name>timboudreau.com builds</name>
-            <url>http://timboudreau.com/builds/plugin/repository/everything/</url>
-            <releases>
-                <enabled>true</enabled>
-                <updatePolicy>never</updatePolicy>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>never</updatePolicy>
-            </snapshots>
+            <id>central</id>
+            <name>Maven Repository</name>
+            <layout>default</layout>
+            <url>http://repo.maven.apache.org/maven2/</url>
         </repository>
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>com.mastfrog</groupId>
-            <artifactId>netty-http-client</artifactId>
-            <version>1.4.18</version>
+            <groupId>com.google.http-client</groupId>
+            <artifactId>google-http-client</artifactId>
+            <version>1.18.0-rc</version>
         </dependency>
         <dependency>
             <groupId>com.corundumstudio.socketio</groupId>
             <artifactId>netty-socketio</artifactId>
             <version>1.6.5</version>
+        </dependency>
+        <!--
+        <dependency>
+            <groupId>com.mastfrog</groupId>
+            <artifactId>netty-http-client</artifactId>
+            <version>1.4.19</version>
+        </dependency>
+        -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <version>4.0.23.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+            <version>4.0.23.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport</artifactId>
+            <version>4.0.23.Final</version>
         </dependency>
         <dependency>
             <groupId>commons-cli</groupId>
@@ -72,6 +87,14 @@
     </dependencies>
     <build>
         <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.0</version>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>appassembler-maven-plugin</artifactId>

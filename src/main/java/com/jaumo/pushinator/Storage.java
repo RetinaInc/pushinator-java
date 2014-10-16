@@ -4,21 +4,20 @@ import com.corundumstudio.socketio.SocketIOClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 public class Storage {
 
     HashMap<Integer, User> users;
     HashMap<SocketIOClient, Integer> clients;
     Logger logger;
-
-    private static Storage instance;
+    LinkedList<Integer> staleUsers;
+    int staleUserExpireTime;
 
     public Storage() {
         users = new HashMap<Integer, User>();
         clients = new HashMap<SocketIOClient, Integer>();
+        staleUsers = new LinkedList<Integer>();
         logger = LoggerFactory.getLogger(Storage.class);
     }
 
@@ -30,10 +29,35 @@ public class Storage {
         return null;
     }
 
+    public void setStaleUserExpireTime(int staleUserExpireTime) {
+        this.staleUserExpireTime = staleUserExpireTime;
+    }
+
     public synchronized void addUser(Integer userId, User user) {
         if (!isUserRegistered(userId)) {
             users.put(userId, user);
+            staleUsers.add(userId);
         }
+    }
+
+    public synchronized Boolean authClient(Integer userId, String hash, SocketIOClient client) {
+        User user = getUser(userId);
+        if (user == null) {
+            logger.debug("Auth user {} with hash {} failed. User not registered.", userId, hash);
+            client.disconnect();
+            return false;
+        } else if (!user.isValid(hash)) {
+            logger.debug("Auth user {} with hash {} failed. Hash mismatch.", userId, hash);
+            client.disconnect();
+            return false;
+        } else {
+            logger.debug("Auth user {} with hash {} success", userId, hash);
+            addClient(userId, client);
+            user.addClient(client);
+            staleUsers.remove(userId);
+        }
+
+        return true;
     }
 
     public synchronized void addClient(Integer userId, SocketIOClient client) {
@@ -52,14 +76,8 @@ public class Storage {
         if (user != null) {
             user.removeClient(client);
             logger.debug("Disconnected user {}", userId);
-            // Allow 10s grace time for reconnect before user is removed
             if (!user.hasClients()) {
-                new Timer().schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        removeUserIfEmpty(userId);
-                    }
-                }, 10000);
+                staleUsers.add(userId);
             }
         }
         else {
@@ -67,14 +85,42 @@ public class Storage {
         }
     }
 
-    public synchronized void removeUserIfEmpty(Integer userId) {
-        User user = getUser(userId);
-        if (user != null) {
-            if (!user.hasClients()) {
+    public Boolean isStale(Integer userId) {
+        return staleUsers.contains(userId);
+    }
+
+    public void removeStaleUsers() {
+        removeStaleUsers(new Date().getTime() - (1000 * staleUserExpireTime));
+    }
+
+    public synchronized void removeStaleUsers(long minimumIdleSince) {
+        Integer userId;
+        int removed = 0;
+        try {
+            while (true) {
+                userId = staleUsers.getFirst();
+                if (userId == null) {
+                    logger.debug("UserId null");
+                    break;
+                }
+
+                User u = users.get(userId);
+                if (u == null) {
+                    logger.debug("User null");
+                }
+                if (u != null && !u.minimumIdleSince(minimumIdleSince)) {
+                    logger.debug("removeStaleUsers: First non-idle user {}", userId);
+                    break;
+                }
+                removed++;
                 users.remove(userId);
-                logger.debug("Remove user {}, no sessions", userId);
+                staleUsers.removeFirst();
             }
         }
+        catch (NoSuchElementException e) {
+            // End loop
+        }
+        logger.info("Removed {} stale users", removed);
     }
 
     public boolean isUserRegistered(Integer userId) {

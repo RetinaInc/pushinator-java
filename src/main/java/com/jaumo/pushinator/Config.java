@@ -12,6 +12,12 @@ public class Config {
     String sslKeyStore = "";
     String sslKeyStorePassword = "";
     int backlogQueueSize = 1024;
+    String callbackUrl = null;
+
+    // Should be lower than staleUserExpireTime
+    int garbageCollectionInverval = 60;
+    int callbackUrlCapping = 3600;
+    int staleUserExpireTime = 7200;
 
     Config() {
     }
@@ -44,6 +50,9 @@ public class Config {
             sslKeyStore = commandLine.getOptionValue("sslKeyStore");
             sslKeyStorePassword = commandLine.getOptionValue("sslKeyStorePassword");
         }
+        if (commandLine.hasOption("callbackUrl")) {
+            callbackUrl = commandLine.getOptionValue("callbackUrl");
+        }
     }
 
     public static Options buildOptions() {
@@ -56,6 +65,7 @@ public class Config {
                 .addOption("sslKeyStore", true, "Path to keystore file")
                 .addOption("sslKeyStorePassword", true, "Keystore password")
                 .addOption("backlogQueueSize", true, "TCP Backlog queue size")
+                .addOption("callbackUrl", true, "URL to call on connect")
                 .addOption("help", false, "Display help");
         return gnuOptions;
     }

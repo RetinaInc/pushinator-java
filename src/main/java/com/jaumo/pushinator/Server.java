@@ -3,11 +3,17 @@ package com.jaumo.pushinator;
 import com.corundumstudio.socketio.*;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import com.corundumstudio.socketio.listener.MultiTypeEventListener;
+import com.mastfrog.netty.http.client.HttpClient;
+import com.mastfrog.netty.http.client.ResponseHandler;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.net.URLEncoder;
+import java.util.Date;
 
 public class Server {
 
@@ -49,45 +55,68 @@ public class Server {
         writer.close();
     }
 
-    private SocketIOServer setUpSocketServer(final Storage storage) throws StartUpException {
-        Configuration config = new Configuration();
-        config.getSocketConfig().setReuseAddress(true);
+    private void sendCallback(Integer userId, final User user, String hash) {
+        if (config.callbackUrl != null) {
+            long timestamp = new Date().getTime() - config.callbackUrlCapping * 1000;
+            if (!user.didSendCallbackAfter(timestamp)) {
+                try {
+                    final String url = config.callbackUrl
+                            .replace(":userId:", URLEncoder.encode(userId.toString(), "UTF-8"))
+                            .replace(":hash:", URLEncoder.encode(hash, "UTF-8"));
+                    HttpClient httpClient = HttpClient.builder().followRedirects().build();
+                    httpClient
+                            .get().setURL(url)
+                            .execute(new ResponseHandler<String>(String.class) {
 
-        logger.info("Socket Option backlog: " + config.getSocketConfig().getAcceptBackLog());
-        logger.info("Socket Option SO_REUSEADDRESS: " + config.getSocketConfig().isReuseAddress());
-        logger.info("Socket Option TCP_NODELAY: " + config.getSocketConfig().isTcpNoDelay());
-        logger.info("Socket Option SO_LINGER: " + config.getSocketConfig().getSoLinger());
-        config.setHostname(this.config.clientAddress);
-        config.setPort(this.config.clientPort);
+                                protected void receive(HttpResponseStatus status, HttpHeaders headers, String response) {
+                                    if (status.code() >= 200 && status.code() < 300) {
+                                        logger.debug("Connect callback success {}", url);
+                                        user.setCallbackSent();
+                                    }
+                                    else {
+                                        logger.error("Connect callback error {} {}: {}...", url, status.code(), response.substring(0, 100));
+                                    }
+                                }
+                            });
+                }
+                catch (UnsupportedEncodingException e) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private SocketIOServer setUpSocketServer(final Storage storage) throws StartUpException {
+        Configuration socketConfig = new Configuration();
+        socketConfig.getSocketConfig().setReuseAddress(true);
+        socketConfig.getSocketConfig().setAcceptBackLog(config.backlogQueueSize);
+
+        logger.info("Socket Option backlog: " + socketConfig.getSocketConfig().getAcceptBackLog());
+        logger.info("Socket Option SO_REUSEADDRESS: " + socketConfig.getSocketConfig().isReuseAddress());
+        logger.info("Socket Option TCP_NODELAY: " + socketConfig.getSocketConfig().isTcpNoDelay());
+        logger.info("Socket Option SO_LINGER: " + socketConfig.getSocketConfig().getSoLinger());
+        socketConfig.setHostname(this.config.clientAddress);
+        socketConfig.setPort(this.config.clientPort);
         if (this.config.useSSL) {
-            config.setKeyStorePassword(this.config.sslKeyStorePassword);
+            socketConfig.setKeyStorePassword(this.config.sslKeyStorePassword);
             try {
                 InputStream stream = new FileInputStream(this.config.sslKeyStore);
-                config.setKeyStore(stream);
+                socketConfig.setKeyStore(stream);
             } catch (FileNotFoundException e) {
                 logger.error("Keystore file not found: " + this.config.sslKeyStore);
                 throw new StartUpException();
             }
         }
 
-        final SocketIOServer server = new SocketIOServer(config);
+        final SocketIOServer server = new SocketIOServer(socketConfig);
         server.addMultiTypeEventListener("auth", new MultiTypeEventListener() {
             @Override
             public void onData(SocketIOClient client, MultiTypeArgs data, AckRequest ackSender) throws Exception {
                 Integer userId = data.get(0);
                 String hash = data.get(1);
-                User user = storage.getUser(userId);
-                if (user == null) {
-                    logger.debug("Auth user {} with hash {} failed. User not registered.", userId, hash);
-                    client.disconnect();
-                } else if (!user.isValid(hash)) {
-                    logger.debug("Auth user {} with hash {} failed. Hash mismatch.", userId, hash);
-                    client.disconnect();
-                } else {
-                    logger.debug("Auth user {} with hash {} success", userId, hash);
-                    user.addClient(client);
-                    storage.addClient(userId, client);
-                    storage.addUser(userId, user);
+                if (storage.authClient(userId, hash, client)) {
+                    User user = storage.getUser(userId);
+                    sendCallback(userId, user, hash);
                 }
             }
         }, Integer.class, String.class);
@@ -125,6 +154,7 @@ public class Server {
         try {
             logger = LoggerFactory.getLogger(Server.class);
             final Storage storage = new Storage();
+            storage.setStaleUserExpireTime(config.staleUserExpireTime);
             server = setUpSocketServer(storage);
             setupAdminServer(storage);
             logger.info("Startup finished");

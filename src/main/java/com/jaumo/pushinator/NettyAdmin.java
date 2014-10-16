@@ -27,9 +27,9 @@ import static io.netty.handler.codec.http.HttpVersion.*;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 public class NettyAdmin {
-
 
     Storage storage;
     Config config;
@@ -61,6 +61,12 @@ public class NettyAdmin {
         bossGroup = new NioEventLoopGroup(0);
         workerGroup = new NioEventLoopGroup(0);
         ServerBootstrap b = new ServerBootstrap();
+        workerGroup.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                storage.removeStaleUsers();
+            }
+        }, config.garbageCollectionInverval, config.garbageCollectionInverval, TimeUnit.SECONDS);
 
         boolean reuseAddress = true;
         boolean tcpNoDelay = true;

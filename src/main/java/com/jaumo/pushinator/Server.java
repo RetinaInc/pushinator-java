@@ -144,6 +144,7 @@ public class Server {
             server = setUpSocketServer(storage);
             setupAdminServer(storage);
             httpClient = new HttpClient(config);
+            logger.info("Callback URL is {}", config.callbackUrl);
             logger.info("Startup finished");
         } catch (StartUpException e) {
             logger.error("Server did not start");
